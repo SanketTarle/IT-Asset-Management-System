@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Asset Assignments{% endblock %}
+{% block page_title %}Assignment & Custody Tracking{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Equipment Custody Ledger</h4>
+        <p class="text-muted small mb-0">Active Custody: <strong>{{ active_count }}</strong> &bull; Returned to Inventory: <strong>{{ returned_count }}</strong></p>
+    </div>
+    {% if current_user.can_manage_assets() %}
+    <div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newAssignmentModal">
+            <i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Issue Asset Assignment
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Filter Tabs / Options -->
+<div class="card-custom mb-4">
+    <div class="card-body py-2">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="btn-group btn-group-sm" role="group">
+                <a href="{{ url_for('assignments.index') }}" class="btn {% if not selected_status %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                    All Records ({{ assignments|length }})
+                </a>
+                <a href="{{ url_for('assignments.index', status='Active') }}" class="btn {% if selected_status == 'Active' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                    Active ({{ active_count }})
+                </a>
+                <a href="{{ url_for('assignments.index', status='Returned') }}" class="btn {% if selected_status == 'Returned' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                    Returned ({{ returned_count }})
+                </a>
+            </div>
+
+            <span class="text-muted small">
+                <i class="fa-solid fa-circle-info me-1 text-primary"></i> 
+                Returning an asset automatically switches its status to <strong>Available</strong>.
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Assignments Table Card -->
+<div class="card-custom">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Asset Code</th>
+                        <th>Equipment</th>
+                        <th>Assigned Staff</th>
+                        <th>Date Assigned</th>
+                        <th>Date Returned</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                        {% if current_user.can_manage_assets() %}
+                        <th class="text-end">Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asgn in assignments %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('assets.details', asset_id=asgn.asset_id) }}" class="fw-bold text-primary font-monospace text-decoration-none">
+                                {{ asgn.asset.asset_code if asgn.asset else '—' }}
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('assets.details', asset_id=asgn.asset_id) }}" class="fw-semibold text-dark text-decoration-none">
+                                {{ asgn.asset.name if asgn.asset else 'Asset Deleted' }}
+                            </a>
+                            <div class="text-muted small">{{ asgn.asset.category.name if asgn.asset and asgn.asset.category else '' }}</div>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('employees.details', employee_id=asgn.employee_id) }}" class="fw-semibold text-dark text-decoration-none">
+                                <i class="fa-solid fa-user me-1 text-secondary"></i>{{ asgn.employee.name if asgn.employee else 'Deleted Staff' }}
+                            </a>
+                            <div class="text-muted small font-monospace">{{ asgn.employee.employee_code if asgn.employee else '' }}</div>
+                        </td>
+                        <td>{{ asgn.assigned_date|format_date }}</td>
+                        <td>
+                            {% if asgn.returned_date %}
+                                {{ asgn.returned_date|format_date }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if asgn.assignment_status == 'Active' %}
+                                <span class="badge bg-success">Active Custody</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Returned</span>
+                            {% endif %}
+                        </td>
+                        <td class="small text-muted" style="max-width: 200px;">
+                            <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ asgn.notes or '' }}">
+                                {{ asgn.notes or '—' }}
+                            </span>
+                        </td>
+                        {% if current_user.can_manage_assets() %}
+                        <td class="text-end">
+                            {% if asgn.assignment_status == 'Active' %}
+                            <button type="button" class="btn btn-sm btn-outline-warning" 
+                                    data-bs-toggle="modal" data-bs-target="#returnModal{{ asgn.id }}">
+                                <i class="fa-solid fa-rotate-left me-1"></i> Return
+                            </button>
+
+                            <!-- Return Modal for this specific active assignment -->
+                            <div class="modal fade text-start" id="returnModal{{ asgn.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title"><i class="fa-solid fa-rotate-left text-warning me-2"></i> Return Equipment</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <form method="POST" action="{{ url_for('assignments.return_assignment', assignment_id=asgn.id) }}">
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Asset</label>
+                                                    <input type="text" class="form-control" value="{{ asgn.asset.name }} ({{ asgn.asset.asset_code }})" readonly>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Returning Custodian</label>
+                                                    <input type="text" class="form-control" value="{{ asgn.employee.name }} ({{ asgn.employee.employee_code }})" readonly>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Return Date <span class="text-danger">*</span></label>
+                                                    <input type="date" name="returned_date" class="form-control" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Physical Condition upon Check-in</label>
+                                                    <select name="condition" class="form-select">
+                                                        <option value="Excellent">Excellent</option>
+                                                        <option value="Good" selected>Good</option>
+                                                        <option value="Fair">Fair</option>
+                                                        <option value="Poor">Poor</option>
+                                                        <option value="Damaged">Damaged</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Notes</label>
+                                                    <textarea name="notes" class="form-control" rows="2" placeholder="Inspection remarks..."></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-warning">Confirm Return to Inventory</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="text-muted small"><i class="fa-solid fa-check text-success"></i> Checked In</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-handshake-slash fa-3x mb-3 text-secondary"></i>
+                            <h5>No assignment records found</h5>
+                            <p class="small">Issue equipment to staff to build a verifiable custody audit trail.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: New Assignment -->
+<div class="modal fade" id="newAssignmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-arrow-right-arrow-left text-primary me-2"></i> New Asset Assignment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('assignments.create_assignment') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Select Available Asset <span class="text-danger">*</span></label>
+                        <select name="asset_id" class="form-select" required>
+                            <option value="">Choose Available Item</option>
+                            {% for a in available_assets %}
+                            <option value="{{ a.id }}">{{ a.asset_code }} - {{ a.name }} ({{ a.category.name if a.category else '' }})</option>
+                            {% endfor %}
+                        </select>
+                        {% if available_assets|length == 0 %}
+                        <div class="form-text text-warning small">No assets currently marked as "Available" in inventory.</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select Employee <span class="text-danger">*</span></label>
+                        <select name="employee_id" class="form-select" required>
+                            <option value="">Choose Staff Custodian</option>
+                            {% for emp in employees %}
+                            <option value="{{ emp.id }}">{{ emp.name }} ({{ emp.employee_code }}) - {{ emp.department or 'General' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Assignment Date <span class="text-danger">*</span></label>
+                        <input type="date" name="assigned_date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Assignment Remarks / Project</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="e.g. Standard issue developer machine for Q4..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" {% if available_assets|length == 0 %}disabled{% endif %}>
+                        Assign Asset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Set default today's date for date pickers
+    document.addEventListener('DOMContentLoaded', function () {
+        const today = new Date().toISOString().split('T')[0];
+        document.querySelectorAll('input[type="date"]').forEach(function (inp) {
+            if (!inp.value) {
+                inp.value = today;
+            }
+        });
+    });
+</script>
+{% endblock %}
+

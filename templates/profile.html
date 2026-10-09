@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile{% endblock %}
+{% block page_title %}User Profile & Security{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card-custom mb-4">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fa-solid fa-user-gear text-primary me-2"></i> Account Information</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('settings.profile') }}">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div class="user-avatar" style="width: 60px; height: 60px; font-size: 1.5rem;">
+                            {{ current_user.name[:2] }}
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-0">{{ current_user.name }}</h5>
+                            <span class="text-muted small">{{ current_user.email }}</span>
+                            <div class="mt-1">
+                                {% if current_user.role == 'Admin' %}
+                                    <span class="badge badge-role-admin">Administrator</span>
+                                {% elif current_user.role == 'Manager' %}
+                                    <span class="badge badge-role-manager">Manager</span>
+                                {% else %}
+                                    <span class="badge badge-role-employee">Employee</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="name">Display Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ current_user.name }}" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Email Address (Read-only)</label>
+                        <input type="email" class="form-control bg-light" value="{{ current_user.email }}" readonly>
+                        <div class="form-text small">Your account identity email cannot be altered without admin privileges.</div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Change Password Section -->
+                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-lock text-warning me-2"></i> Security: Change Password</h6>
+                    <p class="text-muted small mb-3">Leave blank if you do not want to change your password.</p>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="current_password">Current Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control border-end-0" id="current_password" name="current_password" placeholder="Verify existing password">
+                            <button class="btn btn-light border border-start-0 toggle-password-btn" type="button" data-target="current_password">
+                                <i class="fa-solid fa-eye text-muted"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label" for="new_password">New Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control border-end-0" id="new_password" name="new_password" placeholder="Min. 6 characters">
+                                <button class="btn btn-light border border-start-0 toggle-password-btn" type="button" data-target="new_password">
+                                    <i class="fa-solid fa-eye text-muted"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="confirm_password">Confirm New Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control border-end-0" id="confirm_password" name="confirm_password" placeholder="Re-type new password">
+                                <button class="btn btn-light border border-start-0 toggle-password-btn" type="button" data-target="confirm_password">
+                                    <i class="fa-solid fa-eye text-muted"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="fa-solid fa-check me-1"></i> Save Profile & Security Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

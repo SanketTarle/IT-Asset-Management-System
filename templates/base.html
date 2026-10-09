@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %} - {{ app_name }}</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232563eb'><path d='M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z'/></svg>">
+    <!-- Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="app-wrapper">
+        <!-- Mobile Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar">
+            <a href="{{ url_for('dashboard.index') }}" class="sidebar-brand">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                <span>Asset<span style="color: #38bdf8;">Track</span></span>
+            </a>
+
+            <ul class="sidebar-nav">
+                <li class="nav-section-title">Core Operations</li>
+                <li class="nav-item">
+                    <a href="{{ url_for('dashboard.index') }}" class="nav-link-custom {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('assets.index') }}" class="nav-link-custom {% if request.endpoint and request.endpoint.startswith('assets.') %}active{% endif %}">
+                        <i class="fa-solid fa-laptop-code"></i>
+                        <span>Assets</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('assignments.index') }}" class="nav-link-custom {% if request.endpoint and request.endpoint.startswith('assignments.') %}active{% endif %}">
+                        <i class="fa-solid fa-handshake"></i>
+                        <span>Assignments</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('maintenance.index') }}" class="nav-link-custom {% if request.endpoint and request.endpoint.startswith('maintenance.') %}active{% endif %}">
+                        <i class="fa-solid fa-wrench"></i>
+                        <span>Maintenance</span>
+                    </a>
+                </li>
+
+                <li class="nav-section-title">Directory</li>
+                <li class="nav-item">
+                    <a href="{{ url_for('employees.index') }}" class="nav-link-custom {% if request.endpoint and request.endpoint.startswith('employees.') %}active{% endif %}">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Employees</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('categories.index') }}" class="nav-link-custom {% if request.endpoint and request.endpoint.startswith('categories.') %}active{% endif %}">
+                        <i class="fa-solid fa-tags"></i>
+                        <span>Categories</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('locations.index') }}" class="nav-link-custom {% if request.endpoint and request.endpoint.startswith('locations.') %}active{% endif %}">
+                        <i class="fa-solid fa-location-dot"></i>
+                        <span>Locations</span>
+                    </a>
+                </li>
+
+                <li class="nav-section-title">Analytics & Tools</li>
+                <li class="nav-item">
+                    <a href="{{ url_for('reports.index') }}" class="nav-link-custom {% if request.endpoint and request.endpoint.startswith('reports.') %}active{% endif %}">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Reports</span>
+                    </a>
+                </li>
+
+                <li class="nav-section-title">Administration</li>
+                <li class="nav-item">
+                    <a href="{{ url_for('settings.profile') }}" class="nav-link-custom {% if request.endpoint == 'settings.profile' %}active{% endif %}">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>My Profile</span>
+                    </a>
+                </li>
+                {% if current_user.is_authenticated and current_user.is_admin %}
+                <li class="nav-item">
+                    <a href="{{ url_for('settings.settings_page') }}" class="nav-link-custom {% if request.endpoint == 'settings.settings_page' %}active{% endif %}">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>System Settings</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+
+            <div class="sidebar-footer">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="user-avatar text-uppercase">{{ current_user.name[:2] if current_user.is_authenticated else 'U' }}</div>
+                    <div style="line-height: 1.2;">
+                        <div class="text-white small fw-bold text-truncate" style="max-width: 120px;">{{ current_user.name if current_user.is_authenticated else 'Guest' }}</div>
+                        <div class="text-muted" style="font-size: 0.72rem;">{{ current_user.role if current_user.is_authenticated else '' }}</div>
+                    </div>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-danger border-0" title="Logout">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="app-main">
+            <!-- Topbar -->
+            <header class="app-topbar">
+                <div class="topbar-left">
+                    <button class="btn btn-light d-lg-none" id="sidebarToggle" aria-label="Toggle Navigation">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <h1 class="topbar-title">{% block page_title %}Overview{% endblock %}</h1>
+                </div>
+
+                <div class="topbar-right">
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.role == 'Admin' %}
+                            <span class="badge badge-role-admin"><i class="fa-solid fa-shield-halved me-1"></i>Administrator</span>
+                        {% elif current_user.role == 'Manager' %}
+                            <span class="badge badge-role-manager"><i class="fa-solid fa-user-tie me-1"></i>Manager</span>
+                        {% else %}
+                            <span class="badge badge-role-employee"><i class="fa-solid fa-id-badge me-1"></i>Employee</span>
+                        {% endif %}
+
+                        <div class="dropdown">
+                            <button class="btn btn-light dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <div class="user-avatar" style="width: 28px; height: 28px; font-size: 0.75rem;">
+                                    {{ current_user.name[:1] }}
+                                </div>
+                                <span class="d-none d-md-inline fw-semibold small">{{ current_user.name }}</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                <li><h6 class="dropdown-header">{{ current_user.email }}</h6></li>
+                                <li><a class="dropdown-item" href="{{ url_for('settings.profile') }}"><i class="fa-solid fa-user me-2 text-muted"></i>Profile</a></li>
+                                {% if current_user.is_admin %}
+                                <li><a class="dropdown-item" href="{{ url_for('settings.settings_page') }}"><i class="fa-solid fa-sliders me-2 text-muted"></i>System Settings</a></li>
+                                {% endif %}
+                                <li><hr class="dropdown-dropdown-divider my-1"></li>
+                                <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-power-off me-2"></i>Sign Out</a></li>
+                            </ul>
+                        </div>
+                    {% endif %}
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <div class="content-body">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show shadow-sm" role="alert">
+                                {% if category == 'success' %}
+                                    <i class="fa-solid fa-circle-check me-2"></i>
+                                {% elif category in ['danger', 'error'] %}
+                                    <i class="fa-solid fa-circle-exclamation me-2"></i>
+                                {% elif category == 'warning' %}
+                                    <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                                {% else %}
+                                    <i class="fa-solid fa-circle-info me-2"></i>
+                                {% endif %}
+                                <span>{{ message }}</span>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Child template content -->
+                {% block content %}{% endblock %}
+            </div>
+
+            <!-- Footer -->
+            <footer class="py-3 px-4 text-center text-muted small border-top bg-white mt-auto no-print">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center">
+                    <span>&copy; {{ company_name }} &bull; Enterprise {{ app_name }}</span>
+                    <span>v{{ app_version }} &bull; Powered by Flask & SQLite</span>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Bootstrap 5.3 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Global App JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+

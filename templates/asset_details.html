@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}{{ asset.name }} ({{ asset.asset_code }}){% endblock %}
+{% block page_title %}Asset Profile{% endblock %}
+
+{% block content %}
+<!-- Top Header & Actions -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <a href="{{ url_for('assets.index') }}" class="btn btn-outline-secondary btn-sm" title="Back to list">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h4 class="fw-bold mb-0">{{ asset.name }}</h4>
+            <span class="font-monospace text-muted">[{{ asset.asset_code }}]</span>
+            <span class="{{ asset.status_badge_class }}">{{ asset.status }}</span>
+            <span class="{{ asset.condition_badge_class }}">{{ asset.condition }}</span>
+        </div>
+        <p class="text-muted small mb-0">{{ asset.category.name if asset.category else 'Uncategorized' }} &bull; {{ asset.manufacturer or '' }} {{ asset.model or '' }}</p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-outline-secondary btn-sm" onclick="window.print()" title="Print Asset Sheet">
+            <i class="fa-solid fa-print me-1"></i> Print
+        </button>
+
+        {% if current_user.can_manage_assets() %}
+            {% if asset.status == 'Available' %}
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#assignModal">
+                <i class="fa-solid fa-user-plus me-1"></i> Assign Asset
+            </button>
+            {% elif asset.status == 'Assigned' %}
+            <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#returnModal">
+                <i class="fa-solid fa-rotate-left me-1"></i> Return Asset
+            </button>
+            {% endif %}
+
+            <button class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#statusModal">
+                <i class="fa-solid fa-tag me-1"></i> Change Status
+            </button>
+
+            <a href="{{ url_for('assets.edit', asset_id=asset.id) }}" class="btn btn-outline-primary btn-sm">
+                <i class="fa-solid fa-pen-to-square me-1"></i> Edit
+            </a>
+        {% endif %}
+
+        {% if current_user.can_delete() %}
+        <form method="POST" action="{{ url_for('assets.delete', asset_id=asset.id) }}" class="d-inline" data-confirm="Are you sure you want to permanently delete '{{ asset.name }}'?">
+            <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete Asset">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Left Column: Specs, Image, Financials -->
+    <div class="col-lg-4">
+        <!-- Asset Photo / Visual card -->
+        <div class="card-custom mb-4">
+            <div class="card-body text-center p-3">
+                {% if asset.image %}
+                    <img src="{{ url_for('static', filename='uploads/assets/' + asset.image) }}" 
+                         alt="{{ asset.name }}" class="asset-avatar-preview shadow-sm mb-3">
+                {% else %}
+                    <div class="p-5 bg-light rounded text-muted mb-3 border">
+                        <i class="fa-solid fa-laptop-file fa-4x text-secondary mb-2"></i>
+                        <p class="small mb-0">No image uploaded</p>
+                    </div>
+                {% endif %}
+                <h5 class="fw-bold mb-1">{{ asset.name }}</h5>
+                <p class="text-muted small font-monospace mb-2">{{ asset.asset_code }}</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <span class="{{ asset.status_badge_class }}">{{ asset.status }}</span>
+                    <span class="{{ asset.condition_badge_class }}">{{ asset.condition }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignment Summary Card -->
+        <div class="card-custom mb-4">
+            <div class="card-header">
+                <h6 class="card-title"><i class="fa-solid fa-user me-2 text-primary"></i> Current Custody</h6>
+            </div>
+            <div class="card-body">
+                {% if asset.assigned_employee %}
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="user-avatar" style="width: 44px; height: 44px;">
+                            {{ asset.assigned_employee.name[:2] }}
+                        </div>
+                        <div>
+                            <a href="{{ url_for('employees.details', employee_id=asset.assigned_employee.id) }}" class="fw-bold text-dark text-decoration-none">
+                                {{ asset.assigned_employee.name }}
+                            </a>
+                            <div class="text-muted small">{{ asset.assigned_employee.designation or 'Staff' }} &bull; {{ asset.assigned_employee.employee_code }}</div>
+                            <div class="text-muted small">{{ asset.assigned_employee.department or '' }}</div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-muted small py-2">
+                        <i class="fa-solid fa-box-open me-2 text-success"></i>
+                        Currently unassigned. Asset is available in inventory.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Financial Valuation Card -->
+        <div class="card-custom">
+            <div class="card-header">
+                <h6 class="card-title"><i class="fa-solid fa-receipt me-2 text-success"></i> Financial Valuation</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-custom mb-0">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted">Purchase Price</td>
+                            <td class="fw-semibold text-end">{{ asset.purchase_price|currency }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Current Value</td>
+                            <td class="fw-bold text-primary text-end">{{ asset.current_value|currency }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Depreciation</td>
+                            <td class="text-end text-danger fw-semibold">
+                                -{{ (asset.purchase_price - asset.current_value)|currency }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Total Maintenance</td>
+                            <td class="text-end text-warning fw-semibold">{{ asset.total_maintenance_cost|currency }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Full Specifications & Tabs -->
+    <div class="col-lg-8">
+        <!-- Asset Specifications Table -->
+        <div class="card-custom mb-4">
+            <div class="card-header">
+                <h6 class="card-title"><i class="fa-solid fa-list-check me-2 text-primary"></i> Asset Specifications</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-custom mb-0">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted" style="width: 25%;">Category</td>
+                            <td class="fw-semibold">{{ asset.category.name if asset.category else '—' }}</td>
+                            <td class="text-muted" style="width: 25%;">Manufacturer</td>
+                            <td class="fw-semibold">{{ asset.manufacturer or '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Model</td>
+                            <td class="fw-semibold">{{ asset.model or '—' }}</td>
+                            <td class="text-muted">Serial Number (S/N)</td>
+                            <td class="fw-semibold font-monospace">{{ asset.serial_number or '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Location</td>
+                            <td class="fw-semibold">{{ asset.location.name if asset.location else 'Not Specified' }}</td>
+                            <td class="text-muted">Supplier / Vendor</td>
+                            <td class="fw-semibold">{{ asset.supplier or '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Purchase Date</td>
+                            <td>{{ asset.purchase_date|format_date }}</td>
+                            <td class="text-muted">Warranty Expiry</td>
+                            <td>
+                                {% if asset.warranty_expiry %}
+                                    {{ asset.warranty_expiry|format_date }}
+                                    {% if asset.warranty_expiry < today %}
+                                        <span class="badge bg-danger ms-1">Expired</span>
+                                    {% else %}
+                                        <span class="badge bg-success ms-1">Active</span>
+                                    {% endif %}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">System Registered</td>
+                            <td class="small">{{ asset.created_at.strftime('%Y-%m-%d %H:%M') if asset.created_at else '—' }}</td>
+                            <td class="text-muted">Last Updated</td>
+                            <td class="small">{{ asset.updated_at.strftime('%Y-%m-%d %H:%M') if asset.updated_at else '—' }}</td>
+                        </tr>
+                        {% if asset.description %}
+                        <tr>
+                            <td class="text-muted">Description</td>
+                            <td colspan="3" class="small">{{ asset.description }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if asset.notes %}
+                        <tr>
+                            <td class="text-muted">Admin Notes</td>
+                            <td colspan="3" class="small text-muted">{{ asset.notes }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- History Tabs (Assignments, Maintenance, Transactions) -->
+        <div class="card-custom">
+            <div class="card-header border-bottom-0 pb-0">
+                <ul class="nav nav-tabs card-header-tabs" id="assetHistoryTabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" id="assignments-tab" data-bs-toggle="tab" data-bs-target="#assignments-pane" type="button" role="tab">
+                            <i class="fa-solid fa-handshake me-1"></i> Assignment History ({{ assignments|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="maintenance-tab" data-bs-toggle="tab" data-bs-target="#maintenance-pane" type="button" role="tab">
+                            <i class="fa-solid fa-wrench me-1"></i> Maintenance Records ({{ maintenance_records|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="transactions-tab" data-bs-toggle="tab" data-bs-target="#transactions-pane" type="button" role="tab">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> Audit Trail ({{ transactions|length }})
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body p-0">
+                <div class="tab-content" id="assetHistoryTabsContent">
+                    <!-- Tab 1: Assignments History -->
+                    <div class="tab-pane fade show active" id="assignments-pane" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-custom table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th>
+                                        <th>Assigned Date</th>
+                                        <th>Returned Date</th>
+                                        <th>Status</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for asgn in assignments %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('employees.details', employee_id=asgn.employee_id) }}" class="fw-semibold text-dark text-decoration-none">
+                                                {{ asgn.employee.name if asgn.employee else '—' }}
+                                            </a>
+                                            <span class="text-muted small">({{ asgn.employee.employee_code if asgn.employee else '' }})</span>
+                                        </td>
+                                        <td>{{ asgn.assigned_date|format_date }}</td>
+                                        <td>{{ asgn.returned_date|format_date if asgn.returned_date else '—' }}</td>
+                                        <td>
+                                            {% if asgn.assignment_status == 'Active' %}
+                                                <span class="badge bg-success">Active</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Returned</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="small text-muted">{{ asgn.notes or '—' }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="5" class="text-center py-4 text-muted">No assignment records for this asset.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Maintenance Records -->
+                    <div class="tab-pane fade" id="maintenance-pane" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-custom table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th>Provider</th>
+                                        <th>Cost</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for m in maintenance_records %}
+                                    <tr>
+                                        <td>{{ m.maintenance_date|format_date }}</td>
+                                        <td><span class="badge bg-light text-dark border">{{ m.maintenance_type }}</span></td>
+                                        <td class="small">{{ m.description }}</td>
+                                        <td class="small">{{ m.service_provider or '—' }}</td>
+                                        <td class="fw-semibold">{{ m.cost|currency }}</td>
+                                        <td><span class="{{ m.status_badge_class }}">{{ m.status }}</span></td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="6" class="text-center py-4 text-muted">No maintenance records logged for this asset.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Transactions / Audit Trail -->
+                    <div class="tab-pane fade" id="transactions-pane" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-custom table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                        <th>Actor</th>
+                                        <th>Date & Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tx in transactions %}
+                                    <tr>
+                                        <td><span class="badge bg-primary">{{ tx.transaction_type }}</span></td>
+                                        <td class="small">
+                                            {% if tx.old_value or tx.new_value %}
+                                                <span class="text-muted">{{ tx.old_value or 'None' }}</span> &rarr; <strong>{{ tx.new_value or 'None' }}</strong>
+                                            {% endif %}
+                                            {% if tx.notes %}<div class="text-muted">{{ tx.notes }}</div>{% endif %}
+                                        </td>
+                                        <td class="small text-muted">{{ tx.performed_by }}</td>
+                                        <td class="small text-muted">{{ tx.transaction_date.strftime('%Y-%m-%d %H:%M') if tx.transaction_date else '—' }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="4" class="text-center py-4 text-muted">No audit transactions recorded.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Assign Asset -->
+<div class="modal fade" id="assignModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-user-plus text-primary me-2"></i> Assign {{ asset.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('assets.assign', asset_id=asset.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Assign To Employee <span class="text-danger">*</span></label>
+                        <select name="employee_id" class="form-select" required>
+                            <option value="">Select Employee</option>
+                            {% for emp in employees %}
+                            <option value="{{ emp.id }}">{{ emp.name }} ({{ emp.employee_code }}) - {{ emp.department or 'Staff' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Assignment Date <span class="text-danger">*</span></label>
+                        <input type="date" name="assigned_date" class="form-control" value="{{ today_str }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes / Remarks</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Assignment purpose, agreement details..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Confirm Assignment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 2: Return Asset -->
+<div class="modal fade" id="returnModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-rotate-left text-warning me-2"></i> Return Asset</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('assets.return_asset', asset_id=asset.id) }}">
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">
+                        Asset is currently assigned to <strong>{{ asset.assigned_employee.name if asset.assigned_employee else 'Staff' }}</strong>.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">Return Date <span class="text-danger">*</span></label>
+                        <input type="date" name="returned_date" class="form-control" value="{{ today_str }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Condition on Return</label>
+                        <select name="condition" class="form-select">
+                            <option value="Excellent" {% if asset.condition == 'Excellent' %}selected{% endif %}>Excellent</option>
+                            <option value="Good" {% if asset.condition == 'Good' %}selected{% endif %}>Good</option>
+                            <option value="Fair" {% if asset.condition == 'Fair' %}selected{% endif %}>Fair</option>
+                            <option value="Poor" {% if asset.condition == 'Poor' %}selected{% endif %}>Poor</option>
+                            <option value="Damaged" {% if asset.condition == 'Damaged' %}selected{% endif %}>Damaged</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Check-in Notes</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Wear and tear, accessories returned..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Confirm Return</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 3: Change Status -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-tag text-dark me-2"></i> Update Asset Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('assets.change_status', asset_id=asset.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">New Status</label>
+                        <select name="status" class="form-select" required>
+                            <option value="Available" {% if asset.status == 'Available' %}selected{% endif %}>Available</option>
+                            <option value="Under Maintenance" {% if asset.status == 'Under Maintenance' %}selected{% endif %}>Under Maintenance</option>
+                            <option value="Lost" {% if asset.status == 'Lost' %}selected{% endif %}>Lost</option>
+                            <option value="Retired" {% if asset.status == 'Retired' %}selected{% endif %}>Retired</option>
+                            <option value="Disposed" {% if asset.status == 'Disposed' %}selected{% endif %}>Disposed</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reason / Notes</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Reason for status change..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

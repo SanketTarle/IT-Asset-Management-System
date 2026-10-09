@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Executive Dashboard{% endblock %}
+{% block page_title %}Dashboard & Analytics{% endblock %}
+
+{% block content %}
+<!-- Quick Welcome & Operational Actions -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Company Asset Overview</h4>
+        <p class="text-muted small mb-0">Real-time status of physical inventory, allocations, maintenance & financial valuations.</p>
+    </div>
+    {% if current_user.can_manage_assets() %}
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('assets.add') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Add Asset
+        </a>
+        <a href="{{ url_for('assignments.index') }}" class="btn btn-outline-primary">
+            <i class="fa-solid fa-arrow-right-arrow-left"></i> Assign Asset
+        </a>
+        <a href="{{ url_for('maintenance.index') }}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-wrench"></i> Maintenance
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Employee's Personal Assets Alert if applicable -->
+{% if my_assets %}
+<div class="alert alert-info border-info mb-4 shadow-sm" role="alert">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+            <i class="fa-solid fa-laptop me-2"></i>
+            <strong>My Assigned Equipment:</strong> You currently have <strong>{{ my_assets|length }}</strong> active asset(s) registered under your name.
+        </div>
+        <div class="d-flex gap-2">
+            {% for a in my_assets %}
+            <a href="{{ url_for('assets.details', asset_id=a.id) }}" class="badge bg-primary text-decoration-none p-2">
+                {{ a.name }} ({{ a.asset_code }})
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 8 KPI Metrics Cards -->
+<div class="row g-3 mb-4">
+    <!-- Total Assets -->
+    <div class="col-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <span class="kpi-title">Total Assets</span>
+                <div class="kpi-icon primary"><i class="fa-solid fa-boxes-stacked"></i></div>
+            </div>
+            <div class="kpi-value">{{ total_assets }}</div>
+            <p class="kpi-subtitle">Catalogued in system</p>
+        </div>
+    </div>
+
+    <!-- Active Assets -->
+    <div class="col-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <span class="kpi-title">Active Assets</span>
+                <div class="kpi-icon info"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+            <div class="kpi-value">{{ active_assets }}</div>
+            <p class="kpi-subtitle">Operational inventory</p>
+        </div>
+    </div>
+
+    <!-- Assigned Assets -->
+    <div class="col-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <span class="kpi-title">Assigned Assets</span>
+                <div class="kpi-icon purple"><i class="fa-solid fa-user-check"></i></div>
+            </div>
+            <div class="kpi-value">{{ assigned_assets }}</div>
+            <p class="kpi-subtitle">In active staff custody</p>
+        </div>
+    </div>
+
+    <!-- Available Assets -->
+    <div class="col-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <span class="kpi-title">Available Assets</span>
+                <div class="kpi-icon success"><i class="fa-solid fa-box-open"></i></div>
+            </div>
+            <div class="kpi-value">{{ available_assets }}</div>
+            <p class="kpi-subtitle">Ready to allocate</p>
+        </div>
+    </div>
+
+    <!-- Under Maintenance -->
+    <div class="col-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <span class="kpi-title">In Maintenance</span>
+                <div class="kpi-icon warning"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+            </div>
+            <div class="kpi-value">{{ maintenance_assets }}</div>
+            <p class="kpi-subtitle">Repair / service pending</p>
+        </div>
+    </div>
+
+    <!-- Retired Assets -->
+    <div class="col-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <span class="kpi-title">Retired Assets</span>
+                <div class="kpi-icon dark"><i class="fa-solid fa-trash-can"></i></div>
+            </div>
+            <div class="kpi-value">{{ retired_assets }}</div>
+            <p class="kpi-subtitle">Decommissioned / sold</p>
+        </div>
+    </div>
+
+    <!-- Total Employees -->
+    <div class="col-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <span class="kpi-title">Total Staff</span>
+                <div class="kpi-icon info"><i class="fa-solid fa-users"></i></div>
+            </div>
+            <div class="kpi-value">{{ total_employees }}</div>
+            <p class="kpi-subtitle">Registered personnel</p>
+        </div>
+    </div>
+
+    <!-- Total Asset Valuation -->
+    <div class="col-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <span class="kpi-title">Total Asset Value</span>
+                <div class="kpi-icon success"><i class="fa-solid fa-dollar-sign"></i></div>
+            </div>
+            <div class="kpi-value" style="font-size: 1.45rem;">{{ total_value|currency }}</div>
+            <p class="kpi-subtitle">Cost basis: {{ total_purchase_value|currency }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row g-3 mb-4">
+    <!-- Assets by Category -->
+    <div class="col-lg-4">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fa-solid fa-chart-pie text-primary"></i> Assets by Category</h5>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center" style="position: relative; height: 280px;">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assets by Status -->
+    <div class="col-lg-4">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fa-solid fa-chart-donut text-success"></i> Assets by Status</h5>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center" style="position: relative; height: 280px;">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assets by Condition -->
+    <div class="col-lg-4">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fa-solid fa-chart-simple text-info"></i> Physical Condition</h5>
+            </div>
+            <div class="card-body" style="position: relative; height: 280px;">
+                <canvas id="conditionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Value Distribution Chart -->
+    <div class="col-12">
+        <div class="card-custom">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fa-solid fa-chart-column text-warning"></i> Total Valuation by Category</h5>
+            </div>
+            <div class="card-body" style="position: relative; height: 260px;">
+                <canvas id="valueChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activities Grid -->
+<div class="row g-3">
+    <!-- Recently Added Assets -->
+    <div class="col-lg-6">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fa-solid fa-laptop text-primary"></i> Recent Assets</h5>
+                <a href="{{ url_for('assets.index') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-custom">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Asset Name</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in recent_assets %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('assets.details', asset_id=a.id) }}" class="fw-semibold text-primary text-decoration-none">
+                                        {{ a.asset_code }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-truncate" style="max-width: 140px;">{{ a.name }}</div>
+                                </td>
+                                <td><span class="text-muted small">{{ a.category.name if a.category else '—' }}</span></td>
+                                <td><span class="{{ a.status_badge_class }}">{{ a.status }}</span></td>
+                                <td class="fw-semibold">{{ a.current_value|currency }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center text-muted py-3">No assets registered yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Assignments & Operations -->
+    <div class="col-lg-6">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fa-solid fa-clock-rotate-left text-primary"></i> Recent Audit Log</h5>
+                <a href="{{ url_for('assignments.index') }}" class="btn btn-sm btn-outline-primary">Assignments</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-custom">
+                        <thead>
+                            <tr>
+                                <th>Asset</th>
+                                <th>Action</th>
+                                <th>User</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in recent_transactions %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('assets.details', asset_id=tx.asset_id) }}" class="text-decoration-none fw-semibold">
+                                        {{ tx.asset.asset_code if tx.asset else '—' }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">{{ tx.transaction_type }}</span>
+                                </td>
+                                <td><span class="small text-muted text-truncate d-inline-block" style="max-width: 110px;">{{ tx.performed_by }}</span></td>
+                                <td class="small text-muted">{{ tx.transaction_date.strftime('%b %d, %H:%M') if tx.transaction_date else '—' }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center text-muted py-3">No activity logs recorded.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
+

@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Asset Inventory{% endblock %}
+{% block page_title %}Asset Management{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Company Asset Directory</h4>
+        <p class="text-muted small mb-0">Total assets tracked: <strong>{{ assets|length }}</strong></p>
+    </div>
+    {% if current_user.can_manage_assets() %}
+    <div>
+        <a href="{{ url_for('assets.add') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus me-1"></i> Register New Asset
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Search & Filter Card -->
+<div class="card-custom mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('assets.index') }}" class="row g-2 align-items-end">
+            <!-- Search Input -->
+            <div class="col-md-3">
+                <label class="form-label small">Search Keyword</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <input type="text" name="q" class="form-control border-start-0" placeholder="Code, Name, Serial, Model..." value="{{ q }}">
+                </div>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="col-md-2">
+                <label class="form-label small">Category</label>
+                <select name="category_id" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="col-md-2">
+                <label class="form-label small">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="Available" {% if selected_status == 'Available' %}selected{% endif %}>Available</option>
+                    <option value="Assigned" {% if selected_status == 'Assigned' %}selected{% endif %}>Assigned</option>
+                    <option value="Under Maintenance" {% if selected_status == 'Under Maintenance' %}selected{% endif %}>Under Maintenance</option>
+                    <option value="Lost" {% if selected_status == 'Lost' %}selected{% endif %}>Lost</option>
+                    <option value="Retired" {% if selected_status == 'Retired' %}selected{% endif %}>Retired</option>
+                    <option value="Disposed" {% if selected_status == 'Disposed' %}selected{% endif %}>Disposed</option>
+                </select>
+            </div>
+
+            <!-- Condition Filter -->
+            <div class="col-md-2">
+                <label class="form-label small">Condition</label>
+                <select name="condition" class="form-select">
+                    <option value="">All Conditions</option>
+                    <option value="Excellent" {% if selected_condition == 'Excellent' %}selected{% endif %}>Excellent</option>
+                    <option value="Good" {% if selected_condition == 'Good' %}selected{% endif %}>Good</option>
+                    <option value="Fair" {% if selected_condition == 'Fair' %}selected{% endif %}>Fair</option>
+                    <option value="Poor" {% if selected_condition == 'Poor' %}selected{% endif %}>Poor</option>
+                    <option value="Damaged" {% if selected_condition == 'Damaged' %}selected{% endif %}>Damaged</option>
+                </select>
+            </div>
+
+            <!-- Location Filter -->
+            <div class="col-md-2">
+                <label class="form-label small">Location</label>
+                <select name="location_id" class="form-select">
+                    <option value="">All Locations</option>
+                    {% for loc in locations %}
+                    <option value="{{ loc.id }}" {% if selected_location == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="col-md-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary w-100" title="Apply Filters">
+                    <i class="fa-solid fa-filter"></i>
+                </button>
+                <a href="{{ url_for('assets.index') }}" class="btn btn-outline-secondary" title="Reset Filters">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Assets Table Card -->
+<div class="card-custom">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Asset Code</th>
+                        <th>Item</th>
+                        <th>Category</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th>Condition</th>
+                        <th>Assigned Staff</th>
+                        <th>Current Value</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in assets %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('assets.details', asset_id=a.id) }}" class="fw-bold text-primary text-decoration-none font-monospace">
+                                {{ a.asset_code }}
+                            </a>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if a.image %}
+                                    <img src="{{ url_for('static', filename='uploads/assets/' + a.image) }}" class="asset-thumb" alt="{{ a.name }}">
+                                {% else %}
+                                    <div class="asset-thumb-placeholder">
+                                        <i class="fa-solid fa-box"></i>
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <a href="{{ url_for('assets.details', asset_id=a.id) }}" class="fw-semibold text-dark text-decoration-none d-block">
+                                        {{ a.name }}
+                                    </a>
+                                    <span class="text-muted small">
+                                        {{ a.manufacturer or '' }} {{ a.model or '' }}
+                                        {% if a.serial_number %}&bull; S/N: {{ a.serial_number }}{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border">{{ a.category.name if a.category else '—' }}</span>
+                        </td>
+                        <td>
+                            <span class="small text-muted">{{ a.location.name if a.location else 'Unassigned' }}</span>
+                        </td>
+                        <td>
+                            <span class="{{ a.status_badge_class }}">{{ a.status }}</span>
+                        </td>
+                        <td>
+                            <span class="{{ a.condition_badge_class }}">{{ a.condition }}</span>
+                        </td>
+                        <td>
+                            {% if a.assigned_employee %}
+                                <a href="{{ url_for('employees.details', employee_id=a.assigned_employee.id) }}" class="text-decoration-none small fw-semibold text-dark">
+                                    <i class="fa-solid fa-user-check text-success me-1"></i>{{ a.assigned_employee.name }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted small">None</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-semibold text-dark">
+                            {{ a.current_value|currency }}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('assets.details', asset_id=a.id) }}" class="btn btn-outline-secondary" title="View Details">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                                {% if current_user.can_manage_assets() %}
+                                <a href="{{ url_for('assets.edit', asset_id=a.id) }}" class="btn btn-outline-primary" title="Edit Asset">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </a>
+                                {% endif %}
+                                {% if current_user.can_delete() %}
+                                <form method="POST" action="{{ url_for('assets.delete', asset_id=a.id) }}" class="d-inline" data-confirm="Are you sure you want to permanently delete asset '{{ a.name }}' ({{ a.asset_code }})?">
+                                    <button type="submit" class="btn btn-outline-danger" title="Delete Asset">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fa-solid fa-box-open fa-3x mb-3 text-secondary"></i>
+                                <h5>No matching assets found</h5>
+                                <p class="small">Try adjusting your filters or search keywords, or register a new asset.</p>
+                                {% if current_user.can_manage_assets() %}
+                                <a href="{{ url_for('assets.add') }}" class="btn btn-sm btn-primary">
+                                    <i class="fa-solid fa-plus me-1"></i> Add Asset
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Directory{% endblock %}
+{% block page_title %}Employee Management{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Company Staff & Custodians</h4>
+        <p class="text-muted small mb-0">Total registered staff: <strong>{{ employees|length }}</strong></p>
+    </div>
+    {% if current_user.can_manage_assets() %}
+    <div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
+            <i class="fa-solid fa-user-plus me-1"></i> Register Employee
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Search & Filter Card -->
+<div class="card-custom mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('employees.index') }}" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small">Search Staff</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <input type="text" name="q" class="form-control border-start-0" placeholder="Code, Name, Email, Department, Designation..." value="{{ q }}">
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label small">Department</label>
+                <select name="department" class="form-select">
+                    <option value="">All Departments</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}" {% if selected_department == dept %}selected{% endif %}>{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label small">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="Active" {% if selected_status == 'Active' %}selected{% endif %}>Active</option>
+                    <option value="Inactive" {% if selected_status == 'Inactive' %}selected{% endif %}>Inactive</option>
+                    <option value="On Leave" {% if selected_status == 'On Leave' %}selected{% endif %}>On Leave</option>
+                    <option value="Terminated" {% if selected_status == 'Terminated' %}selected{% endif %}>Terminated</option>
+                </select>
+            </div>
+
+            <div class="col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary w-100" title="Apply Filter">
+                    <i class="fa-solid fa-filter me-1"></i> Filter
+                </button>
+                <a href="{{ url_for('employees.index') }}" class="btn btn-outline-secondary" title="Reset">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Employees Table Card -->
+<div class="card-custom">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Employee</th>
+                        <th>Contact</th>
+                        <th>Department & Role</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th>Assigned Assets</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('employees.details', employee_id=emp.id) }}" class="fw-bold text-primary font-monospace text-decoration-none">
+                                {{ emp.employee_code }}
+                            </a>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="user-avatar text-uppercase" style="width: 36px; height: 36px; font-size: 0.85rem;">
+                                    {{ emp.name[:2] }}
+                                </div>
+                                <div>
+                                    <a href="{{ url_for('employees.details', employee_id=emp.id) }}" class="fw-semibold text-dark text-decoration-none d-block">
+                                        {{ emp.name }}
+                                    </a>
+                                    <span class="text-muted small">{{ emp.email }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="small text-muted">{{ emp.phone or '—' }}</span>
+                        </td>
+                        <td>
+                            <div class="fw-semibold small">{{ emp.department or 'General' }}</div>
+                            <span class="text-muted small">{{ emp.designation or 'Staff Member' }}</span>
+                        </td>
+                        <td>
+                            <span class="small text-muted">{{ emp.location.name if emp.location else 'Not Specified' }}</span>
+                        </td>
+                        <td>
+                            {% if emp.status == 'Active' %}
+                                <span class="badge bg-success">Active</span>
+                            {% elif emp.status == 'On Leave' %}
+                                <span class="badge bg-warning text-dark">On Leave</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ emp.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set count = emp.active_assigned_count %}
+                            {% if count > 0 %}
+                                <span class="badge bg-primary rounded-pill px-2 py-1">
+                                    <i class="fa-solid fa-laptop me-1"></i>{{ count }} Item{{ 's' if count > 1 else '' }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted small">0 items</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('employees.details', employee_id=emp.id) }}" class="btn btn-outline-secondary" title="View Details">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                                {% if current_user.can_delete() and emp.active_assigned_count == 0 %}
+                                <form method="POST" action="{{ url_for('employees.delete', employee_id=emp.id) }}" class="d-inline" data-confirm="Delete employee '{{ emp.name }}'?">
+                                    <button type="submit" class="btn btn-outline-danger" title="Delete Employee">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-users fa-3x mb-3 text-secondary"></i>
+                            <h5>No employees found</h5>
+                            <p class="small">Add staff members to assign company assets to them.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Employee -->
+<div class="modal fade" id="addEmployeeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-user-plus text-primary me-2"></i> Register New Staff Member</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('employees.add') }}">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Employee Code</label>
+                            <input type="text" name="employee_code" class="form-control font-monospace" placeholder="e.g. EMP-0005 (auto if blank)">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="On Leave">On Leave</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" placeholder="Sarah Jenkins" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email Address <span class="text-danger">*</span></label>
+                            <input type="email" name="email" class="form-control" placeholder="sarah@company.com" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone Number</label>
+                            <input type="text" name="phone" class="form-control" placeholder="+1 555-0199">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Department</label>
+                            <input type="text" name="department" class="form-control" placeholder="Engineering / Marketing">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Designation / Title</label>
+                            <input type="text" name="designation" class="form-control" placeholder="Senior Developer">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Employee</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

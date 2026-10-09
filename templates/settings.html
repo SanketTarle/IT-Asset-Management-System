@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings{% endblock %}
+{% block page_title %}System Administration & Database{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Administrative Control Panel</h4>
+        <p class="text-muted small mb-0">Manage system users, access privileges, database backups and storage health.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('settings.backup_database') }}" class="btn btn-outline-primary">
+            <i class="fa-solid fa-download me-1"></i> Download database.db Backup
+        </a>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+            <i class="fa-solid fa-user-plus me-1"></i> Create User
+        </button>
+    </div>
+</div>
+
+<!-- Database & System Stats Overview -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="kpi-card">
+            <div class="kpi-title">Database Storage</div>
+            <div class="kpi-value text-primary">{{ stats.database_size_kb }} KB</div>
+            <p class="kpi-subtitle">SQLite: <code>database.db</code></p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card">
+            <div class="kpi-title">Registered Users</div>
+            <div class="kpi-value text-dark">{{ stats.users_count }}</div>
+            <p class="kpi-subtitle">Admin / Manager / Employee</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card">
+            <div class="kpi-title">Catalogued Assets</div>
+            <div class="kpi-value text-success">{{ stats.assets_count }}</div>
+            <p class="kpi-subtitle">Active inventory items</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card">
+            <div class="kpi-title">Maintenance Records</div>
+            <div class="kpi-value text-warning">{{ stats.maintenance_count }}</div>
+            <p class="kpi-subtitle">Historical service orders</p>
+        </div>
+    </div>
+</div>
+
+<!-- User Access Control Card -->
+<div class="card-custom mb-4">
+    <div class="card-header">
+        <h5 class="card-title"><i class="fa-solid fa-users-gear text-primary me-2"></i> User Access & Role Permissions</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email Identity</th>
+                        <th>Role & Privilege</th>
+                        <th>Created</th>
+                        <th class="text-end">Manage Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="user-avatar text-uppercase" style="width: 34px; height: 34px; font-size: 0.85rem;">
+                                    {{ u.name[:2] }}
+                                </div>
+                                <span class="fw-semibold text-dark">{{ u.name }}</span>
+                                {% if u.id == current_user.id %}
+                                    <span class="badge bg-light text-primary border">You</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="font-monospace small">{{ u.email }}</td>
+                        <td>
+                            {% if u.role == 'Admin' %}
+                                <span class="badge badge-role-admin"><i class="fa-solid fa-shield-halved me-1"></i>Administrator</span>
+                            {% elif u.role == 'Manager' %}
+                                <span class="badge badge-role-manager"><i class="fa-solid fa-user-tie me-1"></i>Manager</span>
+                            {% else %}
+                                <span class="badge badge-role-employee"><i class="fa-solid fa-id-badge me-1"></i>Employee</span>
+                            {% endif %}
+                        </td>
+                        <td class="small text-muted">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
+                        <td class="text-end">
+                            <div class="d-inline-flex align-items-center gap-2">
+                                <!-- Role Change Dropdown -->
+                                <form method="POST" action="{{ url_for('settings.update_user_role', user_id=u.id) }}" class="d-inline">
+                                    <div class="input-group input-group-sm">
+                                        <select name="role" class="form-select form-select-sm" onchange="this.form.submit()" {% if u.id == current_user.id %}disabled{% endif %}>
+                                            <option value="Admin" {% if u.role == 'Admin' %}selected{% endif %}>Admin</option>
+                                            <option value="Manager" {% if u.role == 'Manager' %}selected{% endif %}>Manager</option>
+                                            <option value="Employee" {% if u.role == 'Employee' %}selected{% endif %}>Employee</option>
+                                        </select>
+                                    </div>
+                                </form>
+
+                                {% if u.id != current_user.id %}
+                                <form method="POST" action="{{ url_for('settings.delete_user', user_id=u.id) }}" class="d-inline" data-confirm="Permanently delete user '{{ u.name }}' ({{ u.email }})?">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete User">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Database Maintenance & Backup Card -->
+<div class="card-custom">
+    <div class="card-header">
+        <h5 class="card-title"><i class="fa-solid fa-database text-success me-2"></i> Database Architecture & Backup Guide</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <h6 class="fw-bold mb-2">Automated SQLite Architecture</h6>
+                <p class="small text-muted mb-2">
+                    This installation uses zero-configuration SQLite. The database is stored in <code>database.db</code> in the application root directory.
+                </p>
+                <ul class="small text-muted ps-3 mb-3">
+                    <li>Database automatically initialized on first run with full schemas and default administrator.</li>
+                    <li>No external MySQL, PostgreSQL, or database daemon required.</li>
+                    <li>Transactions and relationship cascades protect data integrity.</li>
+                </ul>
+                <a href="{{ url_for('settings.backup_database') }}" class="btn btn-sm btn-outline-success">
+                    <i class="fa-solid fa-download me-1"></i> Download Live Backup (database.db)
+                </a>
+            </div>
+
+            <div class="col-md-6 border-start-md">
+                <h6 class="fw-bold mb-2">Backup & Restoration Instructions</h6>
+                <div class="p-3 bg-light rounded border">
+                    <p class="small mb-1 font-monospace text-dark"><strong>To Backup:</strong></p>
+                    <code class="d-block small text-dark mb-2">copy database.db database_backup.db</code>
+                    <p class="small mb-1 font-monospace text-dark"><strong>To Restore:</strong></p>
+                    <code class="d-block small text-dark mb-2">copy database_backup.db database.db</code>
+                    <small class="text-muted d-block mt-2">Simply restart the app after restoring the file.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add User -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-user-plus text-primary me-2"></i> Create System User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('settings.add_user') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" placeholder="John Doe" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email Address <span class="text-danger">*</span></label>
+                        <input type="email" name="email" class="form-control" placeholder="john.doe@company.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Initial Password <span class="text-danger">*</span></label>
+                        <input type="password" name="password" class="form-control" placeholder="Minimum 6 characters" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role Privilege <span class="text-danger">*</span></label>
+                        <select name="role" class="form-select" required>
+                            <option value="Employee">Employee (View assigned assets & profile)</option>
+                            <option value="Manager">Manager (Manage assets & assignments)</option>
+                            <option value="Admin">Administrator (Full system control)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create User Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
